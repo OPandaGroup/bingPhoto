@@ -2,10 +2,20 @@ const { default: axios } = require("axios");
 const http = require("http");
 const https = require("https");
 const fs = require("fs");
+const images = require("images");
+const sharp = require("sharp");
+
+console.log("Start...");
 
 var urls = [];
+var locker = [false, false, false];
 
-function getPicture(url, path) {
+fs.mkdirSync("./images", { recursive: true }, (err) => {
+	if (err) throw err;
+	console.log('The directory was created.');
+})
+
+function getPicture(url, path, id) {
 	https.get(url, (res) => {
 	
 		var imgData = "";
@@ -18,11 +28,16 @@ function getPicture(url, path) {
 		res.on('end', () => {
 			fs.writeFileSync(path, imgData, "binary");
 			console.log('Downloaded...\n['+path+'] Done...');
+			sharp(path).jpeg({quality: 30}).toFile(path + ".y.jpg", function(err) {
+				if (err) throw err;
+				console.log("Done...");
+			})	;
 		});
 	});
 }
 
 function getUrls(){
+	console.log("Start updata...");
 	axios.get('https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=3')
 	.then(response => {
 		urls = [];
@@ -32,6 +47,7 @@ function getUrls(){
 				var data = response.data.images[i].url;
 				urls.push("https://cn.bing.com" + data);
 				getPicture("https://cn.bing.com" + data, "./images/" + i + ".jpg");
+						
 			}
 		}
 		console.log(urls);
@@ -39,6 +55,7 @@ function getUrls(){
 	.catch(error => {
 		console.error(error); // 处理错误
 	});
+
 }
 
 function hourToMillisecondConversion(hour) {
@@ -49,18 +66,21 @@ var timeout = setInterval(getUrls, hourToMillisecondConversion(1));
 
 getUrls();
 
-http.createServer((req, res) => {
-  res.writeHead(200, {'Content-Type': 'text/plain'});
-  var retData = urls[Math.floor(Math.random() * urls.length)];
-  res.end(retData);
-}).listen(3000, () => {
-  console.log('Server running at http://localhost:3000/');
-})
-
 const server = http.createServer((req, res) => {
-	res.writeHead(200, {'Content-Type': 'image/jpeg'});
-	res.write(fs.readFileSync("./images/" + Math.floor(Math.random() * urls.length) + ".jpg"));
-	res.end();
+	if(req.url == "/") {
+		res.writeHead(200, {'Content-Type': 'image/jpeg'});
+		res.write(fs.readFileSync("./images/" + Math.floor(Math.random() * urls.length) + ".jpg"));
+		res.end();
+	}else if (req.url == "/ys") {
+		res.writeHead(200, {'Content-Type': 'image/jpeg'});
+		res.write(fs.readFileSync("./images/" + Math.floor(Math.random() * urls.length) + ".jpg.y.jpg"));
+		res.end();
+	}else if (req.url == "/text") {
+	    res.writeHead(200, {'Content-Type': 'text/plain'});
+  		var retData = urls[Math.floor(Math.random() * urls.length)];
+  		res.end(retData);
+	}
+	
 }).listen(3001, () => {
 	console.log('Server running at http://localhost:3001/');
 })
